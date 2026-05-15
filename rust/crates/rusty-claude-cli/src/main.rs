@@ -15069,38 +15069,38 @@ mod alias_resolution_tests {
     #[test]
     fn test_alias_resolution_builtin() {
         // Built-in aliases should resolve to their full IDs
-        assert_eq!(resolve_model_alias_with_config(" opus\), \claude-opus-4-6\);
- assert_eq!(resolve_model_alias_with_config(\sonnet\), \claude-sonnet-4-6\);
- assert_eq!(resolve_model_alias_with_config(\haiku\), \claude-haiku-4-5-20251213\);
- }
+        assert_eq!(resolve_model_alias_with_config("opus"), "claude-opus-4-6");
+        assert_eq!(resolve_model_alias_with_config("sonnet"), "claude-sonnet-4-6");
+        assert_eq!(resolve_model_alias_with_config("haiku"), "claude-haiku-4-5-20251213");
+    }
 
- #[test]
- fn test_alias_resolution_syntax_validation() {
- // Resolved aliases should pass syntax validation
- let resolved = resolve_model_alias_with_config(\opus\);
- assert!(validate_model_syntax(&resolved).is_ok());
+    #[test]
+    fn test_alias_resolution_syntax_validation() {
+        // Resolved aliases should pass syntax validation
+        let resolved = resolve_model_alias_with_config("opus");
+        assert!(validate_model_syntax(&resolved).is_ok());
 
- // Raw aliases should FAIL syntax validation (this is why we resolve first!)
- assert!(validate_model_syntax(\opus\).is_err());
- }
+        // Raw aliases should FAIL syntax validation (this is why we resolve first!)
+        assert!(validate_model_syntax("opus").is_err());
+    }
 
- #[test]
- fn test_unknown_alias_fails_validation() {
- // Unknown aliases resolve to themselves
- let resolved = resolve_model_alias_with_config(\unknown-alias\);
- assert_eq!(resolved, \unknown-alias\);
+    #[test]
+    fn test_unknown_alias_fails_validation() {
+        // Unknown aliases resolve to themselves
+        let resolved = resolve_model_alias_with_config("unknown-alias");
+        assert_eq!(resolved, "unknown-alias");
 
- // And then fail validation with a helpful error
- let result = validate_model_syntax(&resolved);
- assert!(result.is_err());
- assert!(result.unwrap_err().contains(\invalid model syntax\));
- }
+        // And then fail validation with a helpful error
+        let result = validate_model_syntax(&resolved);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid model syntax"));
+    }
 
- #[test]
- fn test_direct_provider_model_passes() {
- // Direct provider/model strings should remain unchanged and pass
- let model = \openai/gpt-4o\;
- assert_eq!(resolve_model_alias_with_config(model), model);
- assert!(validate_model_syntax(model).is_ok());
- }
+    #[test]
+    fn test_direct_provider_model_passes() {
+        // Direct provider/model strings should remain unchanged and pass
+        let model = "openai/gpt-4o";
+        assert_eq!(resolve_model_alias_with_config(model), model);
+        assert!(validate_model_syntax(model).is_ok());
+    }
 }
