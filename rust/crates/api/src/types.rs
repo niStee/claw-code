@@ -148,6 +148,8 @@ pub struct MessageResponse {
     pub usage: Usage,
     #[serde(default)]
     pub request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_model_id: Option<String>,
 }
 
 impl MessageResponse {
@@ -317,6 +319,7 @@ mod tests {
                 output_tokens: 500_000,
             },
             request_id: None,
+            provider_model_id: None,
         };
 
         let cost = response.usage.estimated_cost_usd(&response.model);

@@ -28,6 +28,9 @@ pub struct ApiRequest {
 /// Streamed events emitted while processing a single assistant turn.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssistantEvent {
+    ProviderSelection {
+        model: String,
+    },
     Thinking {
         thinking: String,
         signature: Option<String>,
@@ -51,6 +54,12 @@ pub struct PromptCacheEvent {
     pub previous_cache_read_input_tokens: u32,
     pub current_cache_read_input_tokens: u32,
     pub token_drop: u32,
+}
+
+/// Backend model selected by an OpenAI-compatible gateway for a turn.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderSelection {
+    pub model: String,
 }
 
 /// Minimal streaming API contract required by [`ConversationRuntime`].
@@ -115,6 +124,7 @@ pub struct TurnSummary {
     pub assistant_messages: Vec<ConversationMessage>,
     pub tool_results: Vec<ConversationMessage>,
     pub prompt_cache_events: Vec<PromptCacheEvent>,
+    pub provider_selections: Vec<ProviderSelection>,
     pub iterations: usize,
     pub usage: TokenUsage,
     pub auto_compaction: Option<AutoCompactionEvent>,
@@ -341,6 +351,7 @@ where
         let mut assistant_messages = Vec::new();
         let mut tool_results = Vec::new();
         let mut prompt_cache_events = Vec::new();
+        let mut provider_selections = Vec::new();
         let mut iterations = 0;
 
         loop {
@@ -364,7 +375,7 @@ where
                     return Err(error);
                 }
             };
-            let (assistant_message, usage, turn_prompt_cache_events) =
+            let (assistant_message, usage, turn_prompt_cache_events, turn_provider_selections) =
                 match build_assistant_message(events) {
                     Ok(result) => result,
                     Err(error) => {
@@ -376,6 +387,7 @@ where
                 self.usage_tracker.record(usage);
             }
             prompt_cache_events.extend(turn_prompt_cache_events);
+            provider_selections.extend(turn_provider_selections);
             let pending_tool_uses = assistant_message
                 .blocks
                 .iter()
@@ -509,6 +521,7 @@ where
             assistant_messages,
             tool_results,
             prompt_cache_events,
+            provider_selections,
             iterations,
             usage: self.usage_tracker.cumulative_usage(),
             auto_compaction,
@@ -714,17 +727,22 @@ fn build_assistant_message(
         ConversationMessage,
         Option<TokenUsage>,
         Vec<PromptCacheEvent>,
+        Vec<ProviderSelection>,
     ),
     RuntimeError,
 > {
     let mut text = String::new();
     let mut blocks = Vec::new();
     let mut prompt_cache_events = Vec::new();
+    let mut provider_selections = Vec::new();
     let mut finished = false;
     let mut usage = None;
 
     for event in events {
         match event {
+            AssistantEvent::ProviderSelection { model } => {
+                provider_selections.push(ProviderSelection { model });
+            }
             AssistantEvent::Thinking {
                 thinking,
                 signature,
@@ -763,6 +781,7 @@ fn build_assistant_message(
         ConversationMessage::assistant_with_usage(blocks, usage),
         usage,
         prompt_cache_events,
+        provider_selections,
     ))
 }
 
@@ -1755,7 +1774,7 @@ mod tests {
         ];
 
         // when
-        let (message, _, _) = build_assistant_message(events)
+        let (message, _, _, _) = build_assistant_message(events)
             .expect("assistant message should preserve thinking, text, and tool blocks");
 
         // then

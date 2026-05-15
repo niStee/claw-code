@@ -22,6 +22,7 @@ pub const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
 pub const DEFAULT_DASHSCOPE_BASE_URL: &str = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const REQUEST_ID_HEADER: &str = "request-id";
 const ALT_REQUEST_ID_HEADER: &str = "x-request-id";
+const LITELLM_MODEL_ID_HEADER: &str = "x-litellm-model-id";
 const DEFAULT_INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const DEFAULT_MAX_BACKOFF: Duration = Duration::from_secs(128);
 const DEFAULT_MAX_RETRIES: u32 = 8;
@@ -176,6 +177,7 @@ impl OpenAiCompatClient {
         preflight_message_request(&request)?;
         let response = self.send_with_retry(&request).await?;
         let request_id = request_id_from_headers(response.headers());
+        let provider_model_id = provider_model_id_from_headers(response.headers());
         let body = response.text().await.map_err(ApiError::from)?;
         // Some backends return {"error":{"message":"...","type":"...","code":...}}
         // instead of a valid completion object. Check for this before attempting
@@ -217,6 +219,7 @@ impl OpenAiCompatClient {
         if normalized.request_id.is_none() {
             normalized.request_id = request_id;
         }
+        normalized.provider_model_id = provider_model_id;
         Ok(normalized)
     }
 
@@ -228,13 +231,15 @@ impl OpenAiCompatClient {
         let response = self
             .send_with_retry(&request.clone().with_streaming())
             .await?;
+        let request_id = request_id_from_headers(response.headers());
+        let provider_model_id = provider_model_id_from_headers(response.headers());
         Ok(MessageStream {
-            request_id: request_id_from_headers(response.headers()),
+            request_id,
             response,
             parser: OpenAiSseParser::with_context(self.config.provider_name, request.model.clone()),
             pending: VecDeque::new(),
             done: false,
-            state: StreamState::new(request.model.clone()),
+            state: StreamState::new(request.model.clone(), provider_model_id),
         })
     }
 
@@ -448,6 +453,7 @@ impl OpenAiSseParser {
 #[derive(Debug)]
 struct StreamState {
     model: String,
+    provider_model_id: Option<String>,
     message_started: bool,
     text_started: bool,
     text_finished: bool,
@@ -460,9 +466,10 @@ struct StreamState {
 }
 
 impl StreamState {
-    fn new(model: String) -> Self {
+    fn new(model: String, provider_model_id: Option<String>) -> Self {
         Self {
             model,
+            provider_model_id,
             message_started: false,
             text_started: false,
             text_finished: false,
@@ -496,6 +503,7 @@ impl StreamState {
                         output_tokens: 0,
                     },
                     request_id: None,
+                    provider_model_id: self.provider_model_id.clone(),
                 },
             }));
         }
@@ -1410,6 +1418,7 @@ fn normalize_response(
             .as_ref()
             .map_or_else(Usage::default, OpenAiUsage::normalized),
         request_id: None,
+        provider_model_id: None,
     })
 }
 
@@ -1531,6 +1540,15 @@ fn request_id_from_headers(headers: &reqwest::header::HeaderMap) -> Option<Strin
         .get(REQUEST_ID_HEADER)
         .or_else(|| headers.get(ALT_REQUEST_ID_HEADER))
         .and_then(|value| value.to_str().ok())
+        .map(ToOwned::to_owned)
+}
+
+fn provider_model_id_from_headers(headers: &reqwest::header::HeaderMap) -> Option<String> {
+    headers
+        .get(LITELLM_MODEL_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
 }
 
@@ -1768,7 +1786,7 @@ mod tests {
     #[test]
     fn streaming_chunks_with_reasoning_content_emit_thinking_block_events_before_text() {
         // Given streaming chunks with reasoning_content followed by text.
-        let mut state = StreamState::new("deepseek-v4-pro".to_string());
+        let mut state = StreamState::new("deepseek-v4-pro".to_string(), None);
         let mut events = state
             .ingest_chunk(super::ChatCompletionChunk {
                 id: "chatcmpl_stream_reasoning".to_string(),

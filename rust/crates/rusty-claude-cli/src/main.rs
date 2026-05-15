@@ -5027,6 +5027,10 @@ impl LiveCli {
                         format_auto_compaction_notice(event.removed_message_count)
                     );
                 }
+                if let Some(model) = selected_provider_model(&summary) {
+                    println!("Used model: {model}");
+                    println!();
+                }
                 self.persist_session()?;
                 Ok(())
             }
@@ -5083,6 +5087,7 @@ impl LiveCli {
                 "message": final_assistant_text(&summary),
                 "compact": true,
                 "model": self.model,
+                "provider_model": selected_provider_model(&summary),
                 "usage": {
                     "input_tokens": summary.usage.input_tokens,
                     "output_tokens": summary.usage.output_tokens,
@@ -5107,6 +5112,7 @@ impl LiveCli {
             json!({
                 "message": final_assistant_text(&summary),
                 "model": self.model,
+                "provider_model": selected_provider_model(&summary),
                 "iterations": summary.iterations,
                 "auto_compaction": summary.auto_compaction.map(|event| json!({
                     "removed_messages": event.removed_message_count,
@@ -8796,6 +8802,9 @@ impl AnthropicRuntimeClient {
 
             match event {
                 ApiStreamEvent::MessageStart(start) => {
+                    events.push(AssistantEvent::ProviderSelection {
+                        model: response_provider_model(&start.message),
+                    });
                     for block in start.message.content {
                         push_output_block(
                             block,
@@ -9043,6 +9052,22 @@ fn collect_tool_uses(summary: &runtime::TurnSummary) -> Vec<serde_json::Value> {
             _ => None,
         })
         .collect()
+}
+
+fn selected_provider_model(summary: &runtime::TurnSummary) -> Option<&str> {
+    summary
+        .provider_selections
+        .last()
+        .map(|selection| selection.model.as_str())
+}
+
+fn response_provider_model(response: &MessageResponse) -> String {
+    response
+        .provider_model_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(&response.model)
+        .to_string()
 }
 
 fn collect_tool_results(summary: &runtime::TurnSummary) -> Vec<serde_json::Value> {
@@ -9782,6 +9807,9 @@ fn response_to_events(
 ) -> Result<Vec<AssistantEvent>, RuntimeError> {
     let mut events = Vec::new();
     let mut pending_tool = None;
+    events.push(AssistantEvent::ProviderSelection {
+        model: response_provider_model(&response),
+    });
 
     for block in response.content {
         let mut block_has_thinking_summary = false;
@@ -14396,6 +14424,7 @@ UU conflicted.rs",
                     cache_read_input_tokens: 0,
                 },
                 request_id: None,
+                provider_model_id: None,
             },
             &mut out,
         )
@@ -14403,6 +14432,10 @@ UU conflicted.rs",
 
         assert!(matches!(
             &events[0],
+            AssistantEvent::ProviderSelection { model } if model == "claude-opus-4-6"
+        ));
+        assert!(matches!(
+            &events[1],
             AssistantEvent::ToolUse { name, input, .. }
                 if name == "read_file" && input == "{}"
         ));
@@ -14431,6 +14464,7 @@ UU conflicted.rs",
                     cache_read_input_tokens: 0,
                 },
                 request_id: None,
+                provider_model_id: Some("litellm-selected-model".to_string()),
             },
             &mut out,
         )
@@ -14438,6 +14472,10 @@ UU conflicted.rs",
 
         assert!(matches!(
             &events[0],
+            AssistantEvent::ProviderSelection { model } if model == "litellm-selected-model"
+        ));
+        assert!(matches!(
+            &events[1],
             AssistantEvent::ToolUse { name, input, .. }
                 if name == "read_file" && input == "{\"path\":\"rust/Cargo.toml\"}"
         ));
@@ -14470,13 +14508,14 @@ UU conflicted.rs",
                     cache_read_input_tokens: 0,
                 },
                 request_id: None,
+                provider_model_id: None,
             },
             &mut out,
         )
         .expect("response conversion should succeed");
 
         assert!(matches!(
-            &events[0],
+            &events[1],
             AssistantEvent::TextDelta(text) if text == "Final answer"
         ));
         let rendered = String::from_utf8(out).expect("utf8");

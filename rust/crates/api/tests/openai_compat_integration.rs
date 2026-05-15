@@ -31,7 +31,12 @@ async fn send_message_uses_openai_compatible_endpoint_and_auth() {
     );
     let server = spawn_server(
         state.clone(),
-        vec![http_response("200 OK", "application/json", body)],
+        vec![http_response_with_headers(
+            "200 OK",
+            "application/json",
+            body,
+            &[("x-litellm-model-id", "grok-3-fast")],
+        )],
     )
     .await;
 
@@ -43,6 +48,7 @@ async fn send_message_uses_openai_compatible_endpoint_and_auth() {
         .expect("request should succeed");
 
     assert_eq!(response.model, "grok-3");
+    assert_eq!(response.provider_model_id.as_deref(), Some("grok-3-fast"));
     assert_eq!(response.usage.input_tokens, 8);
     assert_eq!(response.usage.cache_read_input_tokens, 3);
     assert_eq!(response.usage.output_tokens, 5);
@@ -301,7 +307,10 @@ async fn stream_message_normalizes_text_and_multiple_tool_calls() {
             "200 OK",
             "text/event-stream",
             sse,
-            &[("x-request-id", "req_grok_stream")],
+            &[
+                ("x-request-id", "req_grok_stream"),
+                ("x-litellm-model-id", "grok-3-stream-fast"),
+            ],
         )],
     )
     .await;
@@ -321,6 +330,15 @@ async fn stream_message_normalizes_text_and_multiple_tool_calls() {
     }
 
     assert!(matches!(events[0], StreamEvent::MessageStart(_)));
+    match &events[0] {
+        StreamEvent::MessageStart(start) => {
+            assert_eq!(
+                start.message.provider_model_id.as_deref(),
+                Some("grok-3-stream-fast")
+            );
+        }
+        other => panic!("expected message start, got {other:?}"),
+    }
     assert!(matches!(
         events[1],
         StreamEvent::ContentBlockStart(ContentBlockStartEvent {

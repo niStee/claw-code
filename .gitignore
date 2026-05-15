@@ -9,9 +9,14 @@ archive/
 .claw/settings.local.json
 .claw/sessions/
 .clawhip/
+logs/
+profiles/
+*.enc
 status-help.txt
 # Legacy Python port session scratch artifacts
 .port_sessions/
 
 # Local Environment Variables
+.env
+.env.*
 .env.ps1
