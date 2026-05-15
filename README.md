@@ -208,6 +208,7 @@ cargo test --workspace
 - [`USAGE.md`](./USAGE.md) — quick commands, auth, sessions, config, parity harness
 - [`docs/navigation-file-context.md`](./docs/navigation-file-context.md) — terminal navigation, scrollback, `@path` file context, attachments, and secret-safety guidance
 - [`docs/local-openai-compatible-providers.md`](./docs/local-openai-compatible-providers.md) — Ollama/llama.cpp/vLLM setup, Claw multi-provider positioning, and local skills install checks
+- [`docs/model-routing-policy.md`](./docs/model-routing-policy.md) — semantic model lanes, provider buckets, fallback policy, and observability guidance for multi-provider setups
 - [`docs/windows-install-release.md`](./docs/windows-install-release.md) — PowerShell-first install, release artifact, provider switching, and Windows/WSL notification smoke paths
 - [`rust/README.md`](./rust/README.md) — crate map, CLI surface, features, workspace layout
 - [`PARITY.md`](./PARITY.md) — parity status for the Rust port
