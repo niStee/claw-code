@@ -23,6 +23,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
+use log::debug;
+
 use api::{
     detect_provider_kind, model_family_identity_for, resolve_startup_auth_source, AnthropicClient,
     AuthSource, ContentBlockDelta, InputContentBlock, InputMessage, MessageRequest,
@@ -719,6 +721,7 @@ fn parse_args(args: &[String]) -> Result<CliAction, String> {
                     .get(index + 1)
                     .ok_or_else(|| "missing value for --model".to_string())?;
                 let resolved = resolve_model_alias_with_config(value);
+                debug!("Resolved --model '{}' -> '{}'", value, resolved);
                 validate_model_syntax(&resolved)?;
                 model = resolved;
                 model_flag_raw = Some(value.clone()); // #148
@@ -727,6 +730,7 @@ fn parse_args(args: &[String]) -> Result<CliAction, String> {
             flag if flag.starts_with("--model=") => {
                 let value = &flag[8..];
                 let resolved = resolve_model_alias_with_config(value);
+                debug!("Resolved --model='{}' -> '{}'", value, resolved);
                 validate_model_syntax(&resolved)?;
                 model = resolved;
                 model_flag_raw = Some(value.to_string()); // #148
@@ -1573,7 +1577,7 @@ fn validate_model_syntax(model: &str) -> Result<(), String> {
             err_msg.push_str(trimmed);
             err_msg.push_str("`? (Requires XAI_API_KEY env var)");
         }
-        return Ok(());
+        return Err(err_msg);
     }
     Ok(())
 }
@@ -15056,4 +15060,47 @@ mod dump_manifests_tests {
 
         let _ = fs::remove_dir_all(&root);
     }
+}
+
+#[cfg(test)]
+mod alias_resolution_tests {
+    use super::{resolve_model_alias_with_config, validate_model_syntax};
+
+    #[test]
+    fn test_alias_resolution_builtin() {
+        // Built-in aliases should resolve to their full IDs
+        assert_eq!(resolve_model_alias_with_config(" opus\), \claude-opus-4-6\);
+ assert_eq!(resolve_model_alias_with_config(\sonnet\), \claude-sonnet-4-6\);
+ assert_eq!(resolve_model_alias_with_config(\haiku\), \claude-haiku-4-5-20251213\);
+ }
+
+ #[test]
+ fn test_alias_resolution_syntax_validation() {
+ // Resolved aliases should pass syntax validation
+ let resolved = resolve_model_alias_with_config(\opus\);
+ assert!(validate_model_syntax(&resolved).is_ok());
+
+ // Raw aliases should FAIL syntax validation (this is why we resolve first!)
+ assert!(validate_model_syntax(\opus\).is_err());
+ }
+
+ #[test]
+ fn test_unknown_alias_fails_validation() {
+ // Unknown aliases resolve to themselves
+ let resolved = resolve_model_alias_with_config(\unknown-alias\);
+ assert_eq!(resolved, \unknown-alias\);
+
+ // And then fail validation with a helpful error
+ let result = validate_model_syntax(&resolved);
+ assert!(result.is_err());
+ assert!(result.unwrap_err().contains(\invalid model syntax\));
+ }
+
+ #[test]
+ fn test_direct_provider_model_passes() {
+ // Direct provider/model strings should remain unchanged and pass
+ let model = \openai/gpt-4o\;
+ assert_eq!(resolve_model_alias_with_config(model), model);
+ assert!(validate_model_syntax(model).is_ok());
+ }
 }
