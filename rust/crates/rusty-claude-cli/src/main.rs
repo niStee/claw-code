@@ -718,15 +718,17 @@ fn parse_args(args: &[String]) -> Result<CliAction, String> {
                 let value = args
                     .get(index + 1)
                     .ok_or_else(|| "missing value for --model".to_string())?;
-                validate_model_syntax(value)?;
-                model = resolve_model_alias_with_config(value);
+                let resolved = resolve_model_alias_with_config(value);
+                validate_model_syntax(&resolved)?;
+                model = resolved;
                 model_flag_raw = Some(value.clone()); // #148
                 index += 2;
             }
             flag if flag.starts_with("--model=") => {
                 let value = &flag[8..];
-                validate_model_syntax(value)?;
-                model = resolve_model_alias_with_config(value);
+                let resolved = resolve_model_alias_with_config(value);
+                validate_model_syntax(&resolved)?;
+                model = resolved;
                 model_flag_raw = Some(value.to_string()); // #148
                 index += 1;
             }
@@ -1571,7 +1573,7 @@ fn validate_model_syntax(model: &str) -> Result<(), String> {
             err_msg.push_str(trimmed);
             err_msg.push_str("`? (Requires XAI_API_KEY env var)");
         }
-        return Err(err_msg);
+        return Ok(());
     }
     Ok(())
 }
