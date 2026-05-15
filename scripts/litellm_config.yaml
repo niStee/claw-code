@@ -1,0 +1,42 @@
+# LiteLLM Proxy Configuration — Vertex AI Claude Models
+#
+# Auth: Uses Google Application Default Credentials (ADC).
+# Run `gcloud auth application-default login` once to set up.
+# Token refresh is handled automatically by google-auth library.
+#
+# Required env vars (set by claw-provider.bat):
+#   VERTEX_PROJECT_ID  — GCP project ID
+#   VERTEX_LOCATION    — Vertex AI region (default: global)
+#   LITELLM_MASTER_KEY — Proxy auth key (clients set this as OPENAI_API_KEY)
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+model_list:
+  - model_name: claude-opus-4-7
+    litellm_params:
+      model: vertex_ai/claude-opus-4-7
+      vertex_project: os.environ/VERTEX_PROJECT_ID
+      vertex_location: global
+
+  - model_name: claude-opus-4-6
+    litellm_params:
+      model: vertex_ai/claude-opus-4-6
+      vertex_project: os.environ/VERTEX_PROJECT_ID
+      vertex_location: global
+
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: vertex_ai/claude-sonnet-4-6
+      vertex_project: os.environ/VERTEX_PROJECT_ID
+      vertex_location: global
+
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: vertex_ai/claude-haiku-4-5
+      vertex_project: os.environ/VERTEX_PROJECT_ID
+      vertex_location: global
+
+litellm_settings:
+  drop_params: true
+  set_verbose: true

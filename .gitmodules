@@ -1,0 +1,3 @@
+[submodule "scripts/codex-proxy"]
+	path = scripts/codex-proxy
+	url = https://github.com/icebear0828/codex-proxy.git

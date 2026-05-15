@@ -1,0 +1,375 @@
+# LiteLLM Proxy Configuration - Claw quota-first routing
+#
+# Goal: spend subscription / free-quota providers first, while treating each
+# subscription as a quota bucket. We allow one conservative same-provider
+# fallback where docs/logs show smaller models may have more headroom, then
+# switch provider instead of hammering sibling models in an exhausted bucket.
+# Vertex/Cloud remains direct test access while billing is disabled. DeepSeek
+# stays pay-as-you-go overflow only.
+#
+# Launcher: scripts/claw-unified-proxy.bat
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+model_list:
+  # Public Claw model groups. Each tier has its own capability/cost lane:
+  #   claw-opus   heavy reasoning and complex implementation
+  #   claw-sonnet everyday coding and review
+  #   claw-haiku  lightweight tool calling and quick edits
+  # They favor currently callable subscription/free-quota routes first, then
+  # DeepSeek pay-as-you-go overflow.
+  - model_name: claw-opus
+    litellm_params:
+      model: openai/gpt-5.5
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: claw-opus-codex-gpt-55
+
+  - model_name: claw-sonnet
+    litellm_params:
+      model: openai/gpt-5.4
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: claw-sonnet-codex-gpt-54
+
+  - model_name: claw-haiku
+    litellm_params:
+      model: openai/gemini-3.1-flash-lite
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: claw-haiku-aistudio-gemini-31-flash-lite
+
+  - model_name: claw-pro
+    litellm_params:
+      model: openai/gpt-5.5
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: claw-pro-codex-gpt-55
+
+  # ChatGPT Plus via local codex-proxy direct access.
+  - model_name: gpt-5.5
+    litellm_params:
+      model: openai/gpt-5.5
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: codex-gpt-55
+
+  - model_name: gpt-5.4
+    litellm_params:
+      model: openai/gpt-5.4
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: codex-gpt-54
+
+  - model_name: gpt-5.4-mini
+    litellm_params:
+      model: openai/gpt-5.4-mini
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: codex-gpt-54-mini
+
+  - model_name: gpt-5.3-codex
+    litellm_params:
+      model: openai/gpt-5.3-codex
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: codex-gpt-53-codex
+
+  - model_name: gpt-5.2
+    litellm_params:
+      model: openai/gpt-5.2
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: codex-gpt-52
+
+  - model_name: gpt-5-codex
+    litellm_params:
+      model: openai/gpt-5-codex
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: codex-gpt-5-codex
+
+  - model_name: gpt-5-codex-mini
+    litellm_params:
+      model: openai/gpt-5-codex-mini
+      api_base: os.environ/CODEX_PROXY_BASE_URL
+      api_key: os.environ/CODEX_PROXY_API_KEY
+    model_info:
+      id: codex-gpt-5-codex-mini
+
+  # Gemini Enterprise / Vertex AI direct test access through Google Cloud ADC.
+  # Keep these out of automatic fallback lanes until billing is enabled.
+  - model_name: gemini-3.1-pro-preview
+    litellm_params:
+      model: vertex_ai/gemini-3.1-pro-preview
+      vertex_project: os.environ/GOOGLE_CLOUD_PROJECT
+      vertex_location: os.environ/GOOGLE_CLOUD_LOCATION
+    model_info:
+      id: vertex-gemini-31-pro-preview
+
+  - model_name: gemini-3-flash-preview
+    litellm_params:
+      model: vertex_ai/gemini-3-flash-preview
+      vertex_project: os.environ/GOOGLE_CLOUD_PROJECT
+      vertex_location: os.environ/GOOGLE_CLOUD_LOCATION
+    model_info:
+      id: vertex-gemini-3-flash-preview
+
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: vertex_ai/gemini-2.5-pro
+      vertex_project: os.environ/GOOGLE_CLOUD_PROJECT
+      vertex_location: os.environ/GOOGLE_CLOUD_LOCATION
+    model_info:
+      id: vertex-gemini-25-pro
+
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: vertex_ai/gemini-2.5-flash
+      vertex_project: os.environ/GOOGLE_CLOUD_PROJECT
+      vertex_location: os.environ/GOOGLE_CLOUD_LOCATION
+    model_info:
+      id: vertex-gemini-25-flash
+
+  - model_name: gemini-2.5-flash-lite
+    litellm_params:
+      model: vertex_ai/gemini-2.5-flash-lite
+      vertex_project: os.environ/GOOGLE_CLOUD_PROJECT
+      vertex_location: os.environ/GOOGLE_CLOUD_LOCATION
+    model_info:
+      id: vertex-gemini-25-flash-lite
+
+  # Gemini AI Studio direct access through the OpenAI-compatible API.
+  # Pro models are listed by the endpoint but currently 429 on generation;
+  # keep them direct-only until quota resets or the tier changes.
+  - model_name: aistudio-gemini-3.1-pro-preview
+    litellm_params:
+      model: openai/gemini-3.1-pro-preview
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: aistudio-gemini-31-pro-preview
+
+  - model_name: aistudio-gemini-3-pro-preview
+    litellm_params:
+      model: openai/gemini-3-pro-preview
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: aistudio-gemini-3-pro-preview
+
+  - model_name: aistudio-gemini-3-flash-preview
+    litellm_params:
+      model: openai/gemini-3-flash-preview
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: aistudio-gemini-3-flash-preview
+
+  - model_name: aistudio-gemini-3.1-flash-lite
+    litellm_params:
+      model: openai/gemini-3.1-flash-lite
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: aistudio-gemini-31-flash-lite
+
+  - model_name: aistudio-gemini-2.5-pro
+    litellm_params:
+      model: openai/gemini-2.5-pro
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: aistudio-gemini-25-pro
+
+  - model_name: aistudio-gemini-2.5-flash
+    litellm_params:
+      model: openai/gemini-2.5-flash
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: aistudio-gemini-25-flash
+
+  - model_name: aistudio-gemini-2.5-flash-lite
+    litellm_params:
+      model: openai/gemini-2.5-flash-lite
+      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: aistudio-gemini-25-flash-lite
+
+  # VS Code LM API through vscode-lm-proxy direct access.
+  # Prefer vscode-auto in fallbacks: Copilot owns model choice and can route
+  # around model-specific health/limit issues better than this static config.
+  - model_name: vscode-auto
+    litellm_params:
+      model: openai/auto
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-auto
+
+  - model_name: vscode-gpt-5.2
+    litellm_params:
+      model: openai/gpt-5.2
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gpt-52
+
+  - model_name: vscode-gpt-5.2-codex
+    litellm_params:
+      model: openai/gpt-5.2-codex
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gpt-52-codex
+
+  - model_name: vscode-gpt-5.4-mini
+    litellm_params:
+      model: openai/gpt-5.4-mini
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gpt-54-mini
+
+  - model_name: vscode-gpt-5-mini
+    litellm_params:
+      model: openai/gpt-5-mini
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gpt-5-mini
+
+  - model_name: vscode-gpt-4.1
+    litellm_params:
+      model: openai/gpt-4.1
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gpt-41
+
+  - model_name: vscode-gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gpt-4o
+
+  - model_name: vscode-gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gpt-4o-mini
+
+  - model_name: vscode-gemini-3.1-pro-preview
+    litellm_params:
+      model: openai/gemini-3.1-pro-preview
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gemini-31-pro-preview
+
+  - model_name: vscode-gemini-3-flash-preview
+    litellm_params:
+      model: openai/gemini-3-flash-preview
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gemini-3-flash-preview
+
+  - model_name: vscode-gemini-2.5-pro
+    litellm_params:
+      model: openai/gemini-2.5-pro
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-gemini-25-pro
+
+  - model_name: vscode-grok-code-fast-1
+    litellm_params:
+      model: openai/grok-code-fast-1
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-grok-code-fast-1
+
+  - model_name: vscode-claude-haiku
+    litellm_params:
+      model: openai/claude-haiku-4.5
+      api_base: os.environ/VSCODE_LM_PROXY_BASE_URL
+      api_key: os.environ/VSCODE_LM_PROXY_API_KEY
+    model_info:
+      id: vscode-claude-haiku-45
+
+  # Experimental direct-only local route. Never used by default fallbacks.
+  - model_name: antigravity-opus
+    litellm_params:
+      model: openai/claude-opus-4-7
+      api_base: os.environ/ANTIGRAVITY_BASE_URL
+      api_key: os.environ/ANTIGRAVITY_API_KEY
+    model_info:
+      id: antigravity-claude-opus-47
+
+  # DeepSeek pay-as-you-go overflow.
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: openai/deepseek-v4-pro
+      api_base: https://api.deepseek.com
+      api_key: os.environ/DEEPSEEK_API_KEY
+    model_info:
+      id: deepseek-v4-pro
+
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: openai/deepseek-v4-flash
+      api_base: https://api.deepseek.com
+      api_key: os.environ/DEEPSEEK_API_KEY
+    model_info:
+      id: deepseek-v4-flash
+
+router_settings:
+  num_retries: 0
+  allowed_fails: 1
+  cooldown_time: 1800
+  fallbacks:
+    - "claw-opus": ["gpt-5.3-codex", "vscode-auto", "deepseek-v4-pro"]
+    - "claw-sonnet": ["gpt-5.4-mini", "vscode-auto", "aistudio-gemini-3-flash-preview", "deepseek-v4-pro"]
+    - "claw-haiku": ["vscode-auto", "deepseek-v4-flash"]
+    - "claw-pro": ["gpt-5.3-codex", "vscode-auto", "deepseek-v4-pro"]
+    - "gpt-5.5": ["gpt-5.3-codex", "vscode-auto", "deepseek-v4-pro"]
+    - "gpt-5.4": ["gpt-5.4-mini", "vscode-auto", "aistudio-gemini-3-flash-preview", "deepseek-v4-pro"]
+    - "gpt-5.4-mini": ["vscode-auto", "aistudio-gemini-3-flash-preview", "deepseek-v4-pro"]
+    - "gpt-5.3-codex": ["gpt-5.4-mini", "vscode-auto", "deepseek-v4-pro"]
+    - "gpt-5.2": ["vscode-auto", "deepseek-v4-pro"]
+    - "gpt-5-codex": ["gpt-5.4-mini", "vscode-auto", "deepseek-v4-pro"]
+    - "gpt-5-codex-mini": ["vscode-auto", "deepseek-v4-pro"]
+    - "vscode-auto": ["aistudio-gemini-3-flash-preview", "deepseek-v4-pro"]
+    - "vscode-gpt-5.2": ["vscode-auto", "deepseek-v4-pro"]
+    - "vscode-gpt-5.4-mini": ["vscode-auto", "deepseek-v4-pro"]
+    - "vscode-gemini-3.1-pro-preview": ["vscode-auto", "deepseek-v4-pro"]
+    - "vscode-gpt-5-mini": ["vscode-auto", "deepseek-v4-flash"]
+    - "vscode-gpt-4.1": ["vscode-auto", "deepseek-v4-flash"]
+    - "vscode-gpt-4o-mini": ["vscode-auto", "deepseek-v4-flash"]
+    - "vscode-claude-haiku": ["deepseek-v4-flash"]
+    - "aistudio-gemini-3-flash-preview": ["vscode-auto", "deepseek-v4-pro"]
+    - "aistudio-gemini-3.1-flash-lite": ["vscode-auto", "deepseek-v4-flash"]
+    - "aistudio-gemini-2.5-flash-lite": ["vscode-auto", "deepseek-v4-flash"]
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
