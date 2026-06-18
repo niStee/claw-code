@@ -10868,7 +10868,10 @@ mod tests {
     fn resolves_known_model_aliases() {
         assert_eq!(resolve_model_alias("opus"), "anthropic/claude-opus-4-6");
         assert_eq!(resolve_model_alias("sonnet"), "anthropic/claude-sonnet-4-6");
-        assert_eq!(resolve_model_alias("haiku"), "anthropic/claude-haiku-4-5-20251213");
+        assert_eq!(
+            resolve_model_alias("haiku"),
+            "anthropic/claude-haiku-4-5-20251213"
+        );
         assert_eq!(resolve_model_alias("claude-opus"), "claude-opus");
     }
 
@@ -11342,7 +11345,10 @@ mod tests {
                 model_flag_raw,
                 ..
             } => {
-                assert_eq!(model, "anthropic/claude-sonnet-4-6", "sonnet alias should resolve");
+                assert_eq!(
+                    model, "anthropic/claude-sonnet-4-6",
+                    "sonnet alias should resolve"
+                );
                 assert_eq!(
                     model_flag_raw.as_deref(),
                     Some("sonnet"),
@@ -15064,9 +15070,18 @@ mod alias_resolution_tests {
     #[test]
     fn test_alias_resolution_builtin() {
         // Built-in aliases should resolve to their full IDs
-        assert_eq!(resolve_model_alias_with_config("opus"), "anthropic/claude-opus-4-6");
-        assert_eq!(resolve_model_alias_with_config("sonnet"), "anthropic/claude-sonnet-4-6");
-        assert_eq!(resolve_model_alias_with_config("haiku"), "anthropic/claude-haiku-4-5-20251213");
+        assert_eq!(
+            resolve_model_alias_with_config("opus"),
+            "anthropic/claude-opus-4-6"
+        );
+        assert_eq!(
+            resolve_model_alias_with_config("sonnet"),
+            "anthropic/claude-sonnet-4-6"
+        );
+        assert_eq!(
+            resolve_model_alias_with_config("haiku"),
+            "anthropic/claude-haiku-4-5-20251213"
+        );
     }
 
     #[test]
